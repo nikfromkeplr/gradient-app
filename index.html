@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gradient App</title>
+  <link rel="preload" href="/fonts/kilimanjaro-sans-regular.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <div class="canvas-wrapper">
+      <canvas id="gradient-canvas"></canvas>
+      <div id="text-overlay" class="text-overlay" style="font-size: 32px;"></div>
+      <svg id="text-border-svg" class="border-svg" xmlns="http://www.w3.org/2000/svg"><rect class="border-rect" rx="44" ry="44" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="5" stroke-dasharray="16 12" stroke-linecap="round"/></svg>
+      <div id="snap-guides" class="snap-guides" style="display: none;">
+        <div class="snap-dot-grid"></div>
+        <div class="snap-crosshair" data-snap="left-top"></div>
+        <div class="snap-crosshair" data-snap="center"></div>
+        <div class="snap-crosshair" data-snap="right-top"></div>
+        <div class="snap-crosshair" data-snap="left-bottom"></div>
+        <div class="snap-crosshair" data-snap="right-bottom"></div>
+      </div>
+    </div>
+
+    <div id="controls">
+      <div class="controls-header">
+        <h1>Gradient</h1>
+        <div class="header-actions">
+          <button id="btn-undo" class="btn-icon" title="Undo (Cmd+Z)" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 14 4 9l5-5"/>
+              <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Flow type -->
+      <div class="control-section">
+        <label class="section-label">Style</label>
+        <div id="flow-radios" class="radio-group">
+          <label class="radio-pill active" data-flow="0">Liquid</label>
+          <label class="radio-pill" data-flow="1">Radial</label>
+          <label class="radio-pill" data-flow="2">Linear</label>
+          <label class="radio-pill" data-flow="3">Sky</label>
+        </div>
+      </div>
+
+      <!-- Color palettes -->
+      <div class="control-section">
+        <div class="inline-group">
+          <label class="section-label">Palette</label>
+          <button id="btn-reverse-colors" class="btn-icon btn-icon-sm" title="Reverse colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="17 1 21 5 17 9"></polyline>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+              <polyline points="7 23 3 19 7 15"></polyline>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+            </svg>
+          </button>
+        </div>
+        <div id="palette-list"></div>
+      </div>
+
+      <!-- Sliders (normal modes) -->
+      <div class="control-section" id="sliders-normal">
+        <div class="inline-group">
+          <label class="section-label">Controls</label>
+          <button id="btn-randomize-normal" class="btn-icon btn-icon-sm" title="Randomize">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 3 21 3 21 8"></polyline>
+              <line x1="4" y1="20" x2="21" y2="3"></line>
+              <polyline points="21 16 21 21 16 21"></polyline>
+              <line x1="15" y1="15" x2="21" y2="21"></line>
+              <line x1="4" y1="4" x2="9" y2="9"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="slider-group" id="slider-group-complexity">
+          <label>Complexity</label>
+          <input type="range" id="slider-complexity" min="0" max="100" value="50" />
+        </div>
+        <div class="slider-group">
+          <label>Smoothness</label>
+          <input type="range" id="slider-smoothness" min="0" max="100" value="70" />
+        </div>
+        <div class="slider-group" id="slider-group-distortion">
+          <label>Distortion</label>
+          <input type="range" id="slider-distortion" min="0" max="100" value="30" />
+        </div>
+        <div class="slider-group">
+          <label>Scale</label>
+          <input type="range" id="slider-scale" min="0" max="100" value="50" />
+        </div>
+        <div class="slider-group">
+          <label>Seed</label>
+          <input type="range" id="slider-seed" min="0" max="1000" value="42" />
+        </div>
+      </div>
+
+      <!-- Sliders (sky mode) -->
+      <div class="control-section" id="sliders-sky" style="display: none;">
+        <div class="inline-group">
+          <label class="section-label">Controls</label>
+          <button id="btn-randomize-sky" class="btn-icon btn-icon-sm" title="Randomize">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 3 21 3 21 8"></polyline>
+              <line x1="4" y1="20" x2="21" y2="3"></line>
+              <polyline points="21 16 21 21 16 21"></polyline>
+              <line x1="15" y1="15" x2="21" y2="21"></line>
+              <line x1="4" y1="4" x2="9" y2="9"></line>
+            </svg>
+          </button>
+        </div>
+        <label class="section-label">Stars</label>
+        <div class="slider-group">
+          <label>Amount</label>
+          <input type="range" id="slider-star-amount" min="0" max="100" value="50" />
+        </div>
+        <label class="section-label" style="margin-top: 8px;">Clouds</label>
+        <div class="slider-group">
+          <label>Size</label>
+          <input type="range" id="slider-cloud-size" min="0" max="100" value="50" />
+        </div>
+        <div class="slider-group">
+          <label>Amount</label>
+          <input type="range" id="slider-cloud-amount" min="0" max="60" value="24" />
+        </div>
+        <div class="slider-group">
+          <label>Seed</label>
+          <input type="range" id="slider-seed-sky" min="0" max="1000" value="42" />
+        </div>
+      </div>
+
+      <!-- Text -->
+      <div class="control-section">
+        <div class="inline-group">
+          <label class="section-label">Text</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-text-visible" checked />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div id="text-controls">
+          <div class="inline-group">
+            <label>Size</label>
+            <div id="text-size-radios" class="radio-group">
+              <label class="radio-pill" data-size="xs">XS</label>
+              <label class="radio-pill active" data-size="s">S</label>
+              <label class="radio-pill" data-size="m">M</label>
+              <label class="radio-pill" data-size="l">L</label>
+            </div>
+          </div>
+          <div class="inline-group">
+            <label>Align</label>
+            <div id="text-align-radios" class="radio-group">
+              <label class="radio-pill" data-align="left" title="Left">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+              </label>
+              <label class="radio-pill active" data-align="center" title="Center">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+              </label>
+              <label class="radio-pill" data-align="right" title="Right">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+              </label>
+            </div>
+          </div>
+          <div class="inline-group">
+            <label>Shadow</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="toggle-text-shadow" />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div class="control-section">
+        <label class="section-label">Presets</label>
+        <div id="presets-list"></div>
+        <button id="btn-save-preset" class="btn-secondary">Save preset</button>
+      </div>
+
+      <!-- Export -->
+      <div class="control-section">
+        <label class="section-label">Export</label>
+        <div class="export-buttons">
+          <button class="btn-export" data-format="png">PNG</button>
+          <button class="btn-export" data-format="jpeg">JPEG</button>
+          <button class="btn-export" data-format="webp">WebP</button>
+        </div>
+        <button id="btn-copy" class="btn-secondary btn-copy">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          Copy image
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
