@@ -27,6 +27,7 @@ export const BUILTIN_PRESETS: Preset[] = [
       starScale: 100,
       cloudSize: 50,
       cloudAmount: 40,
+      scale: 50,
     },
   },
 ];
