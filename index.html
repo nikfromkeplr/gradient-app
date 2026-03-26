@@ -4,10 +4,22 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Gradient App</title>
+  <meta name="description" content="Generate beautiful gradient wallpapers with text overlays" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
+  <meta property="og:title" content="Gradient App" />
+  <meta property="og:description" content="Generate beautiful gradient wallpapers with text overlays" />
+  <meta property="og:image" content="/og-image.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Gradient App" />
+  <meta name="twitter:image" content="/og-image.png" />
   <link rel="preload" href="/fonts/kilimanjaro-sans-regular.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="stylesheet" href="/src/styles.css" />
 </head>
 <body>
+  <div id="mobile-placeholder">
+    <p>This is a desktop-only experience.<br>Please open on a wider screen.</p>
+  </div>
   <div id="app">
     <div class="canvas-wrapper">
       <canvas id="gradient-canvas"></canvas>

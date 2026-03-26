@@ -492,20 +492,10 @@ function snapToPoints(rawX: number, rawY: number): [number, number] {
     if (dist < SNAP_THRESHOLD_PX && dist < bestDist) {
       bestDist = dist;
       matchedSnap = snap;
-
-      // Calculate the center position that puts the text edge at the snap point
-      let newCx: number;
-      if (snap.anchorX === 'left') newCx = snap.wx + (cx - edges.left);
-      else if (snap.anchorX === 'right') newCx = snap.wx - (edges.right - cx);
-      else newCx = snap.wx;
-
-      let newCy: number;
-      if (snap.anchorY === 'top') newCy = snap.wy + (cy - edges.top);
-      else if (snap.anchorY === 'bottom') newCy = snap.wy - (edges.bottom - cy);
-      else newCy = snap.wy;
-
-      snappedX = newCx / w;
-      snappedY = newCy / h;
+      // When snapped, applyTextPosition uses snap anchor directly,
+      // so just keep rawX/rawY as fallback (won't be used while snapped)
+      snappedX = rawX;
+      snappedY = rawY;
     }
   }
 
@@ -795,9 +785,11 @@ function compositeTextOnCanvas(gradientDataUrl: string, format: 'png' | 'jpeg' |
       if (text.trim()) {
         const wrapper = textOverlay.parentElement!;
         const wrapperW = wrapper.clientWidth;
-        const scale = 1920 / wrapperW;
+        const wrapperH = wrapper.clientHeight;
+        const scaleX = 1920 / wrapperW;
+        const scaleY = 1080 / wrapperH;
         const screenFontSize = TEXT_SIZES[textSize];
-        const exportFontSize = screenFontSize * scale;
+        const exportFontSize = screenFontSize * scaleX;
         const tracking = -0.01; // -1% letter-spacing
 
         ctx.font = `400 ${exportFontSize}px Kilimanjaro, sans-serif`;
@@ -809,22 +801,37 @@ function compositeTextOnCanvas(gradientDataUrl: string, format: 'png' | 'jpeg' |
           (ctx as any).letterSpacing = `${exportFontSize * tracking}px`;
         }
 
-        // Alignment
+        // Get actual rendered position from DOM
+        const overlayRect = textOverlay.getBoundingClientRect();
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const screenLeft = overlayRect.left - wrapperRect.left;
+        const screenTop = overlayRect.top - wrapperRect.top;
+        const screenCenterX = screenLeft + overlayRect.width / 2;
+        const screenCenterY = screenTop + overlayRect.height / 2;
+
+        // Alignment anchor in export space
         ctx.textAlign = textAlign;
-        const anchorX = textX * 1920;
+        let anchorX: number;
+        if (textAlign === 'left') {
+          anchorX = screenLeft * scaleX + 32 * scaleX; // account for padding
+        } else if (textAlign === 'right') {
+          anchorX = (screenLeft + overlayRect.width) * scaleX - 32 * scaleX;
+        } else {
+          anchorX = screenCenterX * scaleX;
+        }
 
         // Shadow (if enabled)
         if (textShadow) {
           ctx.shadowColor = 'rgba(10, 25, 160, 0.5)';
-          ctx.shadowOffsetY = 50 * scale;
-          ctx.shadowBlur = 100 * scale;
+          ctx.shadowOffsetY = 50 * scaleX;
+          ctx.shadowBlur = 100 * scaleX;
         }
 
-        const exportY = textY * 1080;
         const lines = text.split('\n');
         const lineHeight = exportFontSize * 1.0;
         const totalHeight = lines.length * lineHeight;
-        const startY = exportY - totalHeight / 2 + lineHeight / 2;
+        const exportCenterY = screenCenterY * scaleY;
+        const startY = exportCenterY - totalHeight / 2 + lineHeight / 2;
 
         lines.forEach((line, i) => {
           ctx.fillText(line, anchorX, startY + i * lineHeight);
