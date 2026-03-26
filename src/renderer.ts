@@ -6,13 +6,21 @@ export interface GradientParams {
   smoothness: number;   // 0..100
   distortion: number;   // 0..100
   seed: number;         // 0..1000
-  flow: number;         // 0=liquid, 1=radial, 2=linear, 3=sky
+  flow: number;         // 0=linear, 1=radial, 2=warp, 3=sky
   starAmount: number;   // 0..100
   starGlow: number;     // 0..100
   starScale: number;    // 0..100
   cloudSize: number;    // 0..100
   cloudAmount: number;  // 0..100
   scale: number;        // 0..100
+  mixing: number;       // 0..75
+  waveX: number;        // 0..100
+  waveY: number;        // 0..100
+  warpProportion: number;  // 0..100
+  warpSoftness: number;    // 0..100
+  warpDistortion: number;  // 0..100
+  warpSwirl: number;       // 0..100
+  warpShapeScale: number;  // 0..100
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -85,6 +93,8 @@ export class GradientRenderer {
       'u_time', 'u_seed', 'u_complexity', 'u_smoothness',
       'u_distortion', 'u_flow', 'u_colorCount', 'u_resolution',
       'u_starAmount', 'u_starGlow', 'u_starScale', 'u_cloudSize', 'u_cloudAmount', 'u_scale',
+      'u_mixing', 'u_waveX', 'u_waveY',
+      'u_warpProportion', 'u_warpSoftness', 'u_warpDistortion', 'u_warpSwirl', 'u_warpShapeScale',
     ];
     for (const name of uniformNames) {
       this.uniforms[name] = gl.getUniformLocation(this.program, name);
@@ -121,6 +131,14 @@ export class GradientRenderer {
     gl.uniform1f(this.uniforms['u_cloudSize'], (params.cloudSize ?? 50) / 100);
     gl.uniform1f(this.uniforms['u_cloudAmount'], (params.cloudAmount ?? 40) / 100);
     gl.uniform1f(this.uniforms['u_scale'], (params.scale ?? 50) / 100);
+    gl.uniform1f(this.uniforms['u_mixing'], (params.mixing ?? 50) / 100);
+    gl.uniform1f(this.uniforms['u_waveX'], (params.waveX ?? 50) / 100);
+    gl.uniform1f(this.uniforms['u_waveY'], (params.waveY ?? 50) / 100);
+    gl.uniform1f(this.uniforms['u_warpProportion'], (params.warpProportion ?? 38) / 100);
+    gl.uniform1f(this.uniforms['u_warpSoftness'], (params.warpSoftness ?? 100) / 100);
+    gl.uniform1f(this.uniforms['u_warpDistortion'], (params.warpDistortion ?? 0) / 100);
+    gl.uniform1f(this.uniforms['u_warpSwirl'], (params.warpSwirl ?? 57) / 100);
+    gl.uniform1f(this.uniforms['u_warpShapeScale'], (params.warpShapeScale ?? 40) / 100);
 
     // Set colors (pad to 6)
     for (let i = 0; i < 6; i++) {
@@ -181,6 +199,14 @@ export class GradientRenderer {
     gl.uniform1f(gl.getUniformLocation(program, 'u_cloudSize'), (params.cloudSize ?? 50) / 100);
     gl.uniform1f(gl.getUniformLocation(program, 'u_cloudAmount'), (params.cloudAmount ?? 40) / 100);
     gl.uniform1f(gl.getUniformLocation(program, 'u_scale'), (params.scale ?? 50) / 100);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_mixing'), (params.mixing ?? 50) / 100);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_waveX'), (params.waveX ?? 50) / 100);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_waveY'), (params.waveY ?? 50) / 100);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_warpProportion'), (params.warpProportion ?? 38) / 100);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_warpSoftness'), (params.warpSoftness ?? 100) / 100);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_warpDistortion'), (params.warpDistortion ?? 0) / 100);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_warpSwirl'), (params.warpSwirl ?? 57) / 100);
+    gl.uniform1f(gl.getUniformLocation(program, 'u_warpShapeScale'), (params.warpShapeScale ?? 40) / 100);
 
     for (let i = 0; i < 6; i++) {
       const color = i < params.colors.length

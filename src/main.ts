@@ -9,14 +9,14 @@ interface Palette {
 }
 
 const palettes: Palette[] = [
-  // Liquid / Radial / Linear
+  // Linear / Radial / Warp
   { id: 'keplr', name: 'Keplr Vivid', colors: ['#006EE5', '#14AFEB', '#797DFF', '#B2ACF4'], flows: [0, 1, 2] },
   { id: 'ocean', name: 'Keplr Blue', colors: ['#006EE5', '#14AFEB', '#3FBDED', '#89C2D8'], flows: [0, 1, 2] },
   { id: 'infra-green', name: 'Infra Green', colors: ['#034842', '#00796E', '#B8DD3F'], flows: [0, 1, 2] },
   { id: 'infra-bloom', name: 'Infra Bloom', colors: ['#034843', '#007F73', '#B7DD40', '#FFC983', '#EBA9FF'], flows: [0, 1, 2] },
   // Sky
-  { id: 'night', name: 'Night Sky', colors: ['#051629', '#063B75', '#006EE5', '#B2ACF4'], flows: [3] },
-  { id: 'day', name: 'Day Sky', colors: ['#0569D7', '#14AFEB', '#67B3D1'], flows: [3] },
+  { id: 'night', name: 'Night Sky', colors: ['#051629', '#003E82', '#006EE5', '#B2ACF4'], flows: [3] },
+  { id: 'day', name: 'Day Sky', colors: ['#0A71E6', '#14AFEB', '#5BBBDD'], flows: [3] },
 ];
 
 function getPalettesForFlow(flow: number): Palette[] {
@@ -31,7 +31,7 @@ let params: GradientParams = {
   complexity: 35,
   smoothness: 80,
   distortion: 40,
-  seed: 137,
+  seed: 480,
   flow: 0,
   starAmount: 50,
   starGlow: 0,
@@ -39,6 +39,14 @@ let params: GradientParams = {
   cloudSize: 50,
   cloudAmount: 24,
   scale: 50,
+  mixing: 50,
+  waveX: 50,
+  waveY: 50,
+  warpProportion: 38,
+  warpSoftness: 100,
+  warpDistortion: 0,
+  warpSwirl: 57,
+  warpShapeScale: 40,
 };
 
 // --- Undo history ---
@@ -88,6 +96,8 @@ const sliders = {
   smoothness: document.getElementById('slider-smoothness') as HTMLInputElement,
   distortion: document.getElementById('slider-distortion') as HTMLInputElement,
   scale: document.getElementById('slider-scale') as HTMLInputElement,
+  warpProportion: document.getElementById('slider-warp-proportion') as HTMLInputElement,
+  warpShapeScale: document.getElementById('slider-warp-shapescale') as HTMLInputElement,
   seed: document.getElementById('slider-seed') as HTMLInputElement,
 };
 
@@ -103,30 +113,58 @@ const slidersSky = document.getElementById('sliders-sky')!;
 
 const sliderGroupComplexity = document.getElementById('slider-group-complexity')!;
 const sliderGroupDistortion = document.getElementById('slider-group-distortion')!;
+const sliderGroupScale = document.getElementById('slider-group-scale')!;
+const sliderGroupSmoothness = document.getElementById('slider-group-smoothness')!;
+const sliderGroupWarpProportion = document.getElementById('slider-group-warp-proportion')!;
+const sliderGroupWarpShapeScale = document.getElementById('slider-group-warp-shapescale')!;
 
 function updateSlidersVisibility() {
   const isSky = params.flow === 3;
   slidersNormal.style.display = isSky ? 'none' : '';
   slidersSky.style.display = isSky ? '' : 'none';
 
-  // Radial: hide Complexity, Distortion max 30
+  // Radial: hide Complexity, Distortion max 30, Scale max 20 (default 10)
   // Linear: Complexity max 40, Distortion max 60
-  if (params.flow === 1) {
-    sliderGroupComplexity.style.display = 'none';
-    params.complexity = 0;
-    sliders.complexity.value = '0';
-    sliders.distortion.max = '30';
-    sliders.scale.max = '20';
-  } else if (params.flow === 2) {
-    sliderGroupComplexity.style.display = '';
+  // Hide mode-specific sliders by default, show shared sliders
+  sliderGroupWarpProportion.style.display = 'none';
+  sliderGroupWarpShapeScale.style.display = 'none';
+  sliderGroupDistortion.style.display = '';
+  sliderGroupSmoothness.style.display = '';
+  sliderGroupComplexity.style.display = '';
+  sliderGroupScale.style.display = '';
+
+  if (params.flow === 0) {
+    // Linear: restore defaults if coming from a mode that clamped them
+    sliderGroupScale.style.display = 'none';
     sliders.complexity.max = '40';
     sliders.distortion.max = '60';
-    sliders.scale.max = '100';
-  } else {
-    sliderGroupComplexity.style.display = '';
-    sliders.complexity.max = '100';
-    sliders.distortion.max = '100';
-    sliders.scale.max = '100';
+    params.scale = 0;
+    sliders.scale.value = '0';
+    if (params.complexity === 0) {
+      params.complexity = 35;
+      sliders.complexity.value = '35';
+    }
+    if (params.distortion < 10) {
+      params.distortion = 40;
+      sliders.distortion.value = '40';
+    }
+  } else if (params.flow === 1) {
+    // Radial: hide Complexity and Scale, Distortion max 30
+    sliderGroupComplexity.style.display = 'none';
+    sliderGroupScale.style.display = 'none';
+    params.complexity = 0;
+    sliders.complexity.value = '0';
+    params.scale = 0;
+    sliders.scale.value = '0';
+    sliders.distortion.max = '30';
+  } else if (params.flow === 2) {
+    // Warp: show Proportion + Shape Scale + Seed only
+    sliderGroupComplexity.style.display = 'none';
+    sliderGroupSmoothness.style.display = 'none';
+    sliderGroupDistortion.style.display = 'none';
+    sliderGroupScale.style.display = 'none';
+    sliderGroupWarpProportion.style.display = '';
+    sliderGroupWarpShapeScale.style.display = '';
   }
 
   // Clamp values to new max
@@ -151,14 +189,43 @@ function syncSlidersFromParams() {
   sliders.smoothness.value = String(params.smoothness);
   sliders.distortion.value = String(params.distortion);
   sliders.scale.value = String(params.scale);
+  sliders.warpProportion.value = String(params.warpProportion);
+  sliders.warpShapeScale.value = String(params.warpShapeScale);
   sliders.seed.value = String(params.seed);
   skySliders.starAmount.value = String(params.starAmount);
   skySliders.cloudSize.value = String(params.cloudSize);
   skySliders.cloudAmount.value = String(params.cloudAmount);
   seedSkySlider.value = String(params.seed);
+  // Update all value displays
+  document.querySelectorAll('.slider-group').forEach(group => {
+    const input = group.querySelector('input[type="range"]') as HTMLInputElement | null;
+    const valueSpan = group.querySelector('.slider-value');
+    if (input && valueSpan) valueSpan.textContent = input.value;
+  });
+}
+
+// --- Slider value displays ---
+function initSliderValues(slider: HTMLInputElement) {
+  const group = slider.closest('.slider-group');
+  if (!group) return;
+  const label = group.querySelector('label');
+  if (!label) return;
+  // Wrap label + value in a header row
+  const header = document.createElement('div');
+  header.className = 'slider-header';
+  const valueSpan = document.createElement('span');
+  valueSpan.className = 'slider-value';
+  valueSpan.textContent = slider.value;
+  group.insertBefore(header, label);
+  header.appendChild(label);
+  header.appendChild(valueSpan);
+  slider.addEventListener('input', () => {
+    valueSpan.textContent = slider.value;
+  });
 }
 
 Object.entries(sliders).forEach(([key, slider]) => {
+  initSliderValues(slider);
   slider.addEventListener('mousedown', () => pushHistory());
   slider.addEventListener('touchstart', () => pushHistory());
   slider.addEventListener('input', () => {
@@ -168,6 +235,7 @@ Object.entries(sliders).forEach(([key, slider]) => {
 });
 
 Object.entries(skySliders).forEach(([key, slider]) => {
+  initSliderValues(slider);
   slider.addEventListener('mousedown', () => pushHistory());
   slider.addEventListener('touchstart', () => pushHistory());
   slider.addEventListener('input', () => {
@@ -176,6 +244,7 @@ Object.entries(skySliders).forEach(([key, slider]) => {
   });
 });
 
+initSliderValues(seedSkySlider);
 seedSkySlider.addEventListener('mousedown', () => pushHistory());
 seedSkySlider.addEventListener('touchstart', () => pushHistory());
 seedSkySlider.addEventListener('input', () => {
@@ -270,6 +339,8 @@ function randomizeNormal() {
   params.distortion = Math.min(10 + Math.floor(Math.random() * 50), maxDistortion);
   const maxScale = Number(sliders.scale.max);
   params.scale = Math.min(Math.floor(Math.random() * 100), maxScale);
+  params.warpProportion = Math.floor(Math.random() * 50);
+  params.warpShapeScale = 10 + Math.floor(Math.random() * 70);
   syncSlidersFromParams();
   renderGradient();
 }
@@ -634,7 +705,7 @@ interface TextState {
   y: number;
 }
 
-const FLOW_NAMES = ['Liquid', 'Radial', 'Linear', 'Sky'];
+const FLOW_NAMES = ['Linear', 'Radial', 'Warp', 'Sky'];
 
 function getTextState(): TextState {
   return {
@@ -715,7 +786,7 @@ function renderPresets() {
     name.textContent = preset.name;
 
     // Build meta info
-    const flowName = FLOW_NAMES[preset.params.flow] || 'Liquid';
+    const flowName = FLOW_NAMES[preset.params.flow] || 'Mesh';
     const paletteName = palettes.find(p => p.id === preset.paletteId)?.name || '—';
     const sizeName = (preset.textState?.size || 's').toUpperCase();
     const meta = document.createElement('span');

@@ -576,9 +576,21 @@ body {
   gap: 4px;
 }
 
+.slider-group .slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .slider-group label {
   font-size: 12px;
   color: var(--text-dim);
+}
+
+.slider-group .slider-value {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
 }
 
 input[type="range"] {

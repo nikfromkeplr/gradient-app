@@ -52,9 +52,9 @@
       <div class="control-section">
         <label class="section-label">Style</label>
         <div id="flow-radios" class="radio-group">
-          <label class="radio-pill active" data-flow="0">Liquid</label>
+          <label class="radio-pill active" data-flow="0">Linear</label>
           <label class="radio-pill" data-flow="1">Radial</label>
-          <label class="radio-pill" data-flow="2">Linear</label>
+          <label class="radio-pill" data-flow="2">Warp</label>
           <label class="radio-pill" data-flow="3">Sky</label>
         </div>
       </div>
@@ -93,7 +93,7 @@
           <label>Complexity</label>
           <input type="range" id="slider-complexity" min="0" max="100" value="50" />
         </div>
-        <div class="slider-group">
+        <div class="slider-group" id="slider-group-smoothness">
           <label>Smoothness</label>
           <input type="range" id="slider-smoothness" min="0" max="100" value="70" />
         </div>
@@ -101,9 +101,17 @@
           <label>Distortion</label>
           <input type="range" id="slider-distortion" min="0" max="100" value="30" />
         </div>
-        <div class="slider-group">
+        <div class="slider-group" id="slider-group-scale">
           <label>Scale</label>
           <input type="range" id="slider-scale" min="0" max="100" value="50" />
+        </div>
+        <div class="slider-group" id="slider-group-warp-proportion" style="display:none">
+          <label>Proportion</label>
+          <input type="range" id="slider-warp-proportion" min="0" max="50" value="38" />
+        </div>
+        <div class="slider-group" id="slider-group-warp-shapescale" style="display:none">
+          <label>Shape Scale</label>
+          <input type="range" id="slider-warp-shapescale" min="0" max="100" value="40" />
         </div>
         <div class="slider-group">
           <label>Seed</label>

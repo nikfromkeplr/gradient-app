@@ -16,7 +16,15 @@ export const fragmentShader = `
   uniform float u_complexity;   // 0..1
   uniform float u_smoothness;   // 0..1
   uniform float u_distortion;   // 0..1
-  uniform float u_flow;         // 0=liquid, 1=radial, 2=linear, 3=sky
+  uniform float u_flow;         // 0=linear, 1=radial, 2=warp, 3=sky
+  uniform float u_mixing;
+  uniform float u_waveX;
+  uniform float u_waveY;
+  uniform float u_warpProportion;
+  uniform float u_warpSoftness;
+  uniform float u_warpDistortion;
+  uniform float u_warpSwirl;
+  uniform float u_warpShapeScale;
   uniform vec3 u_colors[6];
   uniform float u_colorCount;
   uniform vec2 u_resolution;
@@ -60,19 +68,6 @@ export const fragmentShader = `
   // --- Flow pattern functions ---
 
   // Liquid: sin-wave based flowing ribbons
-  float liquidField(vec2 p, float seed) {
-    float angle1 = seed * 2.399;
-    float angle2 = seed * 3.714 + 1.0;
-    float angle3 = seed * 1.618 + 2.5;
-    vec2 dir1 = vec2(cos(angle1), sin(angle1));
-    vec2 dir2 = vec2(cos(angle2), sin(angle2));
-    vec2 dir3 = vec2(cos(angle3), sin(angle3));
-    float wave1 = sin(dot(p, dir1) * 2.0 + snoise(p * 0.5 + seed * 3.7) * 2.0);
-    float wave2 = sin(dot(p, dir2) * 1.5 + snoise(p * 0.4 + seed * 7.1) * 2.5);
-    float wave3 = sin(dot(p, dir3) * 1.8 + snoise(p * 0.6 + seed * 5.3) * 1.8);
-    return (wave1 + wave2 + wave3) / 3.0;
-  }
-
   // Radial: concentric rings from center
   float radialField(vec2 p, float seed) {
     vec2 center = vec2(0.5, 0.5) + vec2(
@@ -185,11 +180,10 @@ export const fragmentShader = `
     return n;
   }
 
-  // Dispatch to the selected flow pattern
+  // Dispatch to the selected flow pattern (0=Linear, 1=Radial)
   float flowField(vec2 p, float seed, float flow) {
-    if (flow < 0.5) return liquidField(p, seed);
-    if (flow < 1.5) return radialField(p, seed);
-    return linearField(p, seed);
+    if (flow < 0.5) return linearField(p, seed);
+    return radialField(p, seed);
   }
 
   // --- Oklab helper: blend two sRGB colors in Oklab space ---
@@ -244,6 +238,31 @@ export const fragmentShader = `
     return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
   }
 
+  // --- Linear gradient (no easing, for sky mode) ---
+  vec3 colorGradientLinear(float t) {
+    int colorCount = int(u_colorCount);
+    vec3 c0 = u_colors[0];
+    vec3 c1 = u_colors[0];
+    float blend = t;
+
+    if (colorCount == 2) {
+      c0 = u_colors[0];
+      c1 = u_colors[1];
+    } else if (colorCount >= 3) {
+      float seg = t * (u_colorCount - 1.0);
+      int idx = int(floor(seg));
+      blend = fract(seg);
+      c0 = u_colors[0]; c1 = u_colors[1];
+      if (idx == 0) { c0 = u_colors[0]; c1 = u_colors[1]; }
+      if (idx == 1) { c0 = u_colors[1]; c1 = u_colors[2]; }
+      if (idx == 2) { c0 = u_colors[2]; c1 = u_colors[3]; }
+      if (idx == 3) { c0 = u_colors[3]; c1 = u_colors[4]; }
+      if (idx == 4) { c0 = u_colors[4]; c1 = u_colors[5]; }
+    }
+
+    return oklabBlend(c0, c1, blend);
+  }
+
   // --- Multi-color Oklab gradient lookup ---
   vec3 colorGradient(float t) {
     int colorCount = int(u_colorCount);
@@ -276,14 +295,14 @@ export const fragmentShader = `
     float seed = u_seed;
     float flow = u_flow;
 
-    // --- Sky mode ---
+    // --- Sky mode (flow 3) ---
     if (flow > 2.5) {
       // Smooth top-to-bottom gradient with subtle noise to break banding
       float t = 1.0 - uv.y;
       // Add very subtle noise to break color banding
       float dither = (snoise(uv * u_resolution * 0.5) * 0.5 + 0.5) / 255.0;
       t = clamp(t + dither, 0.0, 1.0);
-      vec3 skyColor = colorGradient(t);
+      vec3 skyColor = colorGradientLinear(t);
 
       vec2 cloudUV = uv * vec2(aspect, 1.0);
 
@@ -320,8 +339,8 @@ export const fragmentShader = `
 
           // Tint clouds with a brightened version of the sky gradient
           // Back clouds use a slightly different gradient position for depth
-          vec3 cloudTintBack = colorGradient(clamp(1.0 - uv.y * 0.6, 0.0, 1.0));
-          vec3 cloudTintFront = colorGradient(clamp(1.0 - uv.y * 0.4, 0.0, 1.0));
+          vec3 cloudTintBack = colorGradientLinear(clamp(1.0 - uv.y * 0.6, 0.0, 1.0));
+          vec3 cloudTintFront = colorGradientLinear(clamp(1.0 - uv.y * 0.4, 0.0, 1.0));
           // Brighten: push toward white but keep the hue
           cloudTintBack = mix(cloudTintBack, vec3(1.0), 0.55);
           cloudTintFront = mix(cloudTintFront, vec3(1.0), 0.7);
@@ -345,6 +364,57 @@ export const fragmentShader = `
       finalColor += (dither - 0.5 / 255.0);
 
       gl_FragColor = vec4(clamp(finalColor, 0.0, 1.0), 1.0);
+      return;
+    }
+
+    // --- Warp mode (flow 2) ---
+    if (flow > 1.5 && flow < 2.5) {
+      vec2 wUV = v_uv * 0.5 * 2.0; // scale=2.0
+      float t = seed * 6.28318;
+
+      // Noise-based distortion
+      float n1 = snoise(wUV * 1.0 + t) * 0.5 + 0.5;
+      float n2 = snoise(wUV * 2.0 - t) * 0.5 + 0.5;
+      float wAngle = n1 * 6.28318;
+      wUV.x += 4.0 * u_warpDistortion * n2 * cos(wAngle);
+      wUV.y += 4.0 * u_warpDistortion * n2 * sin(wAngle);
+
+      // Swirl distortion (10 iterations)
+      float swirl = u_warpSwirl;
+      for (float i = 1.0; i <= 10.0; i++) {
+        wUV.x += swirl / i * cos(t + i * 1.5 * wUV.y);
+        wUV.y += swirl / i * cos(t + i * 1.0 * wUV.x);
+      }
+
+      float proportion = u_warpProportion;
+
+      // Checks shape
+      vec2 checksUV = wUV * (0.5 + 3.5 * u_warpShapeScale);
+      float wShape = 0.5 + 0.5 * sin(checksUV.x) * cos(checksUV.y);
+      wShape += 0.48 * sign(proportion - 0.5) * pow(abs(proportion - 0.5), 0.5);
+
+      // Color blending with softness control
+      float mixer = wShape * (u_colorCount - 1.0);
+      vec3 wColor = u_colors[0];
+      for (int i = 1; i < 6; i++) {
+        if (float(i) >= u_colorCount) break;
+        float m = clamp(mixer - float(i - 1), 0.0, 1.0);
+
+        // Softness: 0 = hard step, 1 = smooth blend
+        float localStart = floor(m);
+        float softness = 0.5 * u_warpSoftness + 0.01;
+        float smoothed = smoothstep(max(0.0, 0.5 - softness), min(1.0, 0.5 + softness), m - localStart);
+        float stepped = localStart + smoothed;
+        m = mix(stepped, m, u_warpSoftness);
+
+        wColor = mix(wColor, u_colors[i], m);
+      }
+
+      // Dither
+      float dither = (snoise(uv * u_resolution * 0.5) * 0.5 + 0.5) / 255.0;
+      wColor += dither - 0.5 / 255.0;
+
+      gl_FragColor = vec4(clamp(wColor, 0.0, 1.0), 1.0);
       return;
     }
 
