@@ -17,7 +17,7 @@ const palettes: Palette[] = [
   // Sky
   { id: 'aurora', name: 'Aurora', colors: ['#051629', '#003E82', '#006EE5', '#B2ACF4'], flows: [3] },
   { id: 'night', name: 'Night Sky', colors: ['#020714', '#0D2347', '#1C5599'], flows: [3] },
-  { id: 'day', name: 'Day Sky', colors: ['#0A71E6', '#14AFEB', '#5BBBDD'], flows: [3] },
+  { id: 'day', name: 'Day Sky', colors: ['#346EE2', '#14AFEB'], flows: [3] },
 ];
 
 function getPalettesForFlow(flow: number): Palette[] {
