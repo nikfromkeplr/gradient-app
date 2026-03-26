@@ -15,7 +15,8 @@ const palettes: Palette[] = [
   { id: 'infra-green', name: 'Infra Green', colors: ['#034842', '#00796E', '#B8DD3F'], flows: [0, 1, 2] },
   { id: 'infra-bloom', name: 'Infra Bloom', colors: ['#034843', '#007F73', '#B7DD40', '#FFC983', '#EBA9FF'], flows: [0, 1, 2] },
   // Sky
-  { id: 'night', name: 'Night Sky', colors: ['#051629', '#003E82', '#006EE5', '#B2ACF4'], flows: [3] },
+  { id: 'aurora', name: 'Aurora', colors: ['#051629', '#003E82', '#006EE5', '#B2ACF4'], flows: [3] },
+  { id: 'night', name: 'Night Sky', colors: ['#020714', '#0D2347', '#1C5599'], flows: [3] },
   { id: 'day', name: 'Day Sky', colors: ['#0A71E6', '#14AFEB', '#5BBBDD'], flows: [3] },
 ];
 
@@ -48,6 +49,29 @@ let params: GradientParams = {
   warpSwirl: 57,
   warpShapeScale: 40,
 };
+
+// --- Per-flow state snapshots (so randomizing one style doesn't affect others) ---
+interface FlowSnapshot {
+  params: GradientParams;
+  paletteId: string;
+}
+
+const flowSnapshots: Record<number, FlowSnapshot> = {};
+
+function saveFlowSnapshot() {
+  flowSnapshots[params.flow] = {
+    params: cloneParams(params),
+    paletteId: activePaletteId,
+  };
+}
+
+function restoreFlowSnapshot(flow: number): boolean {
+  const snap = flowSnapshots[flow];
+  if (!snap) return false;
+  params = { ...cloneParams(snap.params), flow };
+  activePaletteId = snap.paletteId;
+  return true;
+}
 
 // --- Glass state ---
 let glassParams: GlassParams = {
@@ -97,6 +121,8 @@ const renderer = new GradientRenderer(canvas);
 function renderGradient() {
   renderer.resize();
   renderer.render(params, glassParams);
+  // Keep per-flow snapshot in sync
+  saveFlowSnapshot();
 }
 
 // --- Sliders ---
@@ -126,11 +152,15 @@ const sliderGroupScale = document.getElementById('slider-group-scale')!;
 const sliderGroupSmoothness = document.getElementById('slider-group-smoothness')!;
 const sliderGroupWarpProportion = document.getElementById('slider-group-warp-proportion')!;
 const sliderGroupWarpShapeScale = document.getElementById('slider-group-warp-shapescale')!;
+const btnReverseColors = document.getElementById('btn-reverse-colors') as HTMLButtonElement;
 
 function updateSlidersVisibility() {
   const isSky = params.flow === 3;
   slidersNormal.style.display = isSky ? 'none' : '';
   slidersSky.style.display = isSky ? '' : 'none';
+
+  // Hide reverse button for Sky
+  btnReverseColors.style.display = isSky ? 'none' : '';
 
   // Radial: hide Complexity, Distortion max 30, Scale max 20 (default 10)
   // Linear: Complexity max 40, Distortion max 60
@@ -306,18 +336,25 @@ flowRadios.addEventListener('click', (e) => {
   if (flow === params.flow) return;
 
   pushHistory();
-  params.flow = flow;
 
-  // Switch to first palette for new flow type
-  const available = getPalettesForFlow(flow);
-  const currentPalette = palettes.find(p => p.id === activePaletteId);
-  if (!currentPalette || !currentPalette.flows.includes(flow)) {
-    activePaletteId = available[0].id;
-    params.colors = [...available[0].colors];
+  // Save current flow state before switching
+  saveFlowSnapshot();
+
+  // Try to restore saved state for the target flow
+  if (!restoreFlowSnapshot(flow)) {
+    // No snapshot — set flow and pick appropriate palette
+    params.flow = flow;
+    const available = getPalettesForFlow(flow);
+    const currentPalette = palettes.find(p => p.id === activePaletteId);
+    if (!currentPalette || !currentPalette.flows.includes(flow)) {
+      activePaletteId = available[0].id;
+      params.colors = [...available[0].colors];
+    }
   }
 
   updateFlowRadios();
   updateSlidersVisibility();
+  syncSlidersFromParams();
   renderPalettes();
   renderGradient();
 });
@@ -358,7 +395,8 @@ function renderPalettes() {
 }
 
 // --- Reverse colors ---
-document.getElementById('btn-reverse-colors')!.addEventListener('click', () => {
+btnReverseColors.addEventListener('click', () => {
+  if (params.flow === 3) return; // disabled for Sky
   pushHistory();
   params.colors = [...params.colors].reverse();
   renderGradient();
@@ -368,15 +406,22 @@ document.getElementById('btn-reverse-colors')!.addEventListener('click', () => {
 function randomizeNormal() {
   pushHistory();
   params.seed = Math.floor(Math.random() * 1000);
-  const maxComplexity = Number(sliders.complexity.max);
-  const maxDistortion = Number(sliders.distortion.max);
-  params.complexity = Math.min(20 + Math.floor(Math.random() * 60), maxComplexity);
-  params.smoothness = 40 + Math.floor(Math.random() * 50);
-  params.distortion = Math.min(10 + Math.floor(Math.random() * 50), maxDistortion);
-  const maxScale = Number(sliders.scale.max);
-  params.scale = Math.min(Math.floor(Math.random() * 100), maxScale);
-  params.warpProportion = Math.floor(Math.random() * 50);
-  params.warpShapeScale = 10 + Math.floor(Math.random() * 70);
+
+  if (params.flow === 0) {
+    // Linear: Complexity (max 40), Smoothness, Distortion (max 60)
+    params.complexity = 10 + Math.floor(Math.random() * 30);
+    params.smoothness = 40 + Math.floor(Math.random() * 50);
+    params.distortion = 10 + Math.floor(Math.random() * 50);
+  } else if (params.flow === 1) {
+    // Radial: Smoothness, Distortion (max 30)
+    params.smoothness = 40 + Math.floor(Math.random() * 50);
+    params.distortion = 5 + Math.floor(Math.random() * 25);
+  } else if (params.flow === 2) {
+    // Warp: Proportion (0-50), Shape Scale
+    params.warpProportion = Math.floor(Math.random() * 50);
+    params.warpShapeScale = 10 + Math.floor(Math.random() * 70);
+  }
+
   syncSlidersFromParams();
   renderGradient();
 }
