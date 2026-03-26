@@ -153,6 +153,35 @@
         </div>
       </div>
 
+      <!-- Fluted Glass (hidden for now) -->
+      <div class="control-section" style="display:none">
+        <div class="inline-group">
+          <label class="section-label">Fluted Glass</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-glass" autocomplete="off" />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div id="glass-controls" class="hidden">
+          <div class="slider-group">
+            <label>Size</label>
+            <input type="range" id="slider-glass-size" min="70" max="100" value="91" />
+          </div>
+          <div class="slider-group">
+            <label>Distortion</label>
+            <input type="range" id="slider-glass-distortion" min="0" max="100" value="15" />
+          </div>
+          <div class="slider-group">
+            <label>Angle</label>
+            <input type="range" id="slider-glass-angle" min="0" max="180" value="114" />
+          </div>
+          <div class="slider-group">
+            <label>Stretch</label>
+            <input type="range" id="slider-glass-stretch" min="0" max="100" value="19" />
+          </div>
+        </div>
+      </div>
+
       <!-- Text -->
       <div class="control-section">
         <div class="inline-group">
@@ -206,6 +235,13 @@
       <!-- Export -->
       <div class="control-section">
         <label class="section-label">Export</label>
+        <div class="inline-group">
+          <label>Resolution</label>
+          <div class="radio-group" id="resolution-radios">
+            <label class="radio-pill active" data-res="1920x1080">Full HD</label>
+            <label class="radio-pill" data-res="2560x1440">2K</label>
+          </div>
+        </div>
         <div class="export-buttons">
           <button class="btn-export" data-format="png">PNG</button>
           <button class="btn-export" data-format="jpeg">JPEG</button>

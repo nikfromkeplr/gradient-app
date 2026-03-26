@@ -142,6 +142,16 @@ body {
   display: none;
 }
 
+#glass-controls.hidden {
+  display: none;
+}
+
+#glass-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Snap guides */
 .snap-guides {
   position: absolute;

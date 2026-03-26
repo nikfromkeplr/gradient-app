@@ -1,4 +1,4 @@
-import { GradientRenderer, type GradientParams } from './renderer';
+import { GradientRenderer, type GradientParams, type GlassParams } from './renderer';
 
 // --- Palettes per flow type ---
 interface Palette {
@@ -49,6 +49,15 @@ let params: GradientParams = {
   warpShapeScale: 40,
 };
 
+// --- Glass state ---
+let glassParams: GlassParams = {
+  enabled: false,
+  size: 91,
+  distortion: 15,
+  angle: 114,
+  stretch: 19,
+};
+
 // --- Undo history ---
 const history: { params: GradientParams; paletteId: string }[] = [];
 const MAX_HISTORY = 50;
@@ -87,7 +96,7 @@ const renderer = new GradientRenderer(canvas);
 
 function renderGradient() {
   renderer.resize();
-  renderer.render(params);
+  renderer.render(params, glassParams);
 }
 
 // --- Sliders ---
@@ -251,6 +260,33 @@ seedSkySlider.addEventListener('input', () => {
   params.seed = Number(seedSkySlider.value);
   sliders.seed.value = seedSkySlider.value;
   renderGradient();
+});
+
+// --- Fluted Glass controls ---
+const glassToggle = document.getElementById('toggle-glass') as HTMLInputElement;
+const glassControlsEl = document.getElementById('glass-controls')!;
+
+const glassSliders = {
+  size: document.getElementById('slider-glass-size') as HTMLInputElement,
+  distortion: document.getElementById('slider-glass-distortion') as HTMLInputElement,
+  angle: document.getElementById('slider-glass-angle') as HTMLInputElement,
+  stretch: document.getElementById('slider-glass-stretch') as HTMLInputElement,
+};
+
+glassToggle.addEventListener('change', () => {
+  glassParams.enabled = glassToggle.checked;
+  glassControlsEl.classList.toggle('hidden', !glassToggle.checked);
+  renderGradient();
+});
+
+Object.entries(glassSliders).forEach(([key, slider]) => {
+  initSliderValues(slider);
+  slider.addEventListener('mousedown', () => pushHistory());
+  slider.addEventListener('touchstart', () => pushHistory());
+  slider.addEventListener('input', () => {
+    (glassParams as any)[key] = Number(slider.value);
+    renderGradient();
+  });
 });
 
 // --- Flow radio buttons ---
@@ -842,23 +878,40 @@ document.getElementById('btn-save-preset')!.addEventListener('click', () => {
 });
 
 // --- Export helper: composite text onto gradient ---
+// --- Export resolution ---
+let exportWidth = 1920;
+let exportHeight = 1080;
+
+const resolutionRadios = document.getElementById('resolution-radios')!;
+resolutionRadios.addEventListener('click', (e) => {
+  const pill = (e.target as HTMLElement).closest('.radio-pill') as HTMLElement | null;
+  if (!pill) return;
+  const res = pill.dataset.res;
+  if (!res) return;
+  const [w, h] = res.split('x').map(Number);
+  exportWidth = w;
+  exportHeight = h;
+  resolutionRadios.querySelectorAll('.radio-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+});
+
 function compositeTextOnCanvas(gradientDataUrl: string, format: 'png' | 'jpeg' | 'webp'): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
-      c.width = 1920;
-      c.height = 1080;
+      c.width = exportWidth;
+      c.height = exportHeight;
       const ctx = c.getContext('2d')!;
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, exportWidth, exportHeight);
 
       const text = textVisible ? (textOverlay.innerText || '') : '';
       if (text.trim()) {
         const wrapper = textOverlay.parentElement!;
         const wrapperW = wrapper.clientWidth;
         const wrapperH = wrapper.clientHeight;
-        const scaleX = 1920 / wrapperW;
-        const scaleY = 1080 / wrapperH;
+        const scaleX = exportWidth / wrapperW;
+        const scaleY = exportHeight / wrapperH;
         const screenFontSize = TEXT_SIZES[textSize];
         const exportFontSize = screenFontSize * scaleX;
         const tracking = -0.01; // -1% letter-spacing
@@ -919,7 +972,7 @@ function compositeTextOnCanvas(gradientDataUrl: string, format: 'png' | 'jpeg' |
 // --- Copy to clipboard (with text) ---
 const btnCopy = document.getElementById('btn-copy') as HTMLButtonElement;
 btnCopy.addEventListener('click', async () => {
-  const gradientDataUrl = renderer.exportImage(params, 'png');
+  const gradientDataUrl = renderer.exportImage(params, 'png', exportWidth, exportHeight, glassParams);
   const dataUrl = await compositeTextOnCanvas(gradientDataUrl, 'png');
   const res = await fetch(dataUrl);
   const blob = await res.blob();
@@ -939,7 +992,7 @@ btnCopy.addEventListener('click', async () => {
 document.querySelectorAll('.btn-export[data-format]').forEach((btn) => {
   btn.addEventListener('click', async () => {
     const format = (btn as HTMLElement).dataset.format as 'png' | 'jpeg' | 'webp';
-    const gradientDataUrl = renderer.exportImage(params, format);
+    const gradientDataUrl = renderer.exportImage(params, format, exportWidth, exportHeight, glassParams);
     const dataUrl = await compositeTextOnCanvas(gradientDataUrl, format);
     const link = document.createElement('a');
     link.download = `gradient.${format}`;
@@ -959,6 +1012,10 @@ window.addEventListener('resize', () => {
 });
 
 // --- Boot ---
+// Sync glass toggle (prevent browser caching checked state)
+glassToggle.checked = glassParams.enabled;
+glassControlsEl.classList.toggle('hidden', !glassParams.enabled);
+
 syncSlidersFromParams();
 updateFlowRadios();
 renderPalettes();

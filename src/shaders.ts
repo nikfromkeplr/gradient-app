@@ -7,6 +7,64 @@ export const vertexShader = `
   }
 `;
 
+// --- Fluted Glass post-process shader ---
+export const glassFragmentShader = `
+  precision highp float;
+  varying vec2 v_uv;
+
+  uniform sampler2D u_texture;
+  uniform vec2 u_resolution;
+  uniform float u_glassSize;        // 0..1
+  uniform float u_glassDistortion;  // 0..1
+  uniform float u_glassAngle;       // 0..180 degrees
+  uniform float u_glassStretch;     // 0..1
+
+  const float PI = 3.14159265359;
+
+  void main() {
+    vec2 uv = v_uv;
+    float aspect = u_resolution.x / u_resolution.y;
+
+    // Rotation
+    float a = -u_glassAngle * PI / 180.0;
+    float ca = cos(a);
+    float sa = sin(a);
+
+    // Pattern UV (rotated, aspect-corrected)
+    vec2 p = uv - 0.5;
+    p.x *= aspect;
+    vec2 rp = vec2(p.x * ca - p.y * sa, p.x * sa + p.y * ca);
+
+    // Fluted pattern — repeating glass ridges
+    float patternSize = mix(200.0, 5.0, u_glassSize);
+    float x = rp.x * patternSize;
+
+    // Smooth sine-based ridge pattern
+    float ridge = sin(x * PI);
+
+    // Apply stretch (makes ridges sharper/flatter)
+    float absRidge = abs(ridge);
+    float sharpened = sign(ridge) * pow(absRidge, mix(1.0, 0.15, u_glassStretch));
+    float stretched = mix(ridge, sharpened, u_glassStretch);
+
+    // Prism-style distortion: shift perpendicular to ridges
+    float distortStrength = u_glassDistortion * 0.1;
+    vec2 offset = vec2(ca, sa) * stretched * distortStrength;
+    vec2 distortedUV = clamp(uv + offset, 0.0, 1.0);
+
+    // Sample the gradient texture
+    vec3 color = texture2D(u_texture, distortedUV).rgb;
+
+    // Shadow & highlight from ridge curvature
+    float shadow = (1.0 - absRidge) * 0.25 * u_glassDistortion;
+    float highlight = pow(max(ridge, 0.0), 4.0) * 0.12 * u_glassDistortion;
+
+    color = color * (1.0 - shadow) + vec3(highlight);
+
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), 1.0);
+  }
+`;
+
 export const fragmentShader = `
   precision highp float;
 
@@ -420,7 +478,7 @@ export const fragmentShader = `
 
     // --- Normal gradient modes ---
     // Scale: 0 = zoomed in (0.5x), 0.5 = default (1x), 1 = zoomed out (2x)
-    float scaleFactor = mix(0.5, 2.0, u_scale);
+    float scaleFactor = mix(1.0, 2.0, u_scale);
     vec2 center = vec2(aspect * 0.5, 0.5);
     uv.x *= aspect;
     uv = center + (uv - center) * scaleFactor;
