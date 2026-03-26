@@ -11,12 +11,12 @@ interface Palette {
 const palettes: Palette[] = [
   // Liquid / Radial / Linear
   { id: 'keplr', name: 'Keplr Vivid', colors: ['#006EE5', '#14AFEB', '#797DFF', '#B2ACF4'], flows: [0, 1, 2] },
-  { id: 'ocean', name: 'Keplr Blue', colors: ['#006EE5', '#14AFEB', '#78D9FF'], flows: [0, 1, 2] },
+  { id: 'ocean', name: 'Keplr Blue', colors: ['#006EE5', '#14AFEB', '#3FBDED', '#89C2D8'], flows: [0, 1, 2] },
   { id: 'infra-green', name: 'Infra Green', colors: ['#034842', '#00796E', '#B8DD3F'], flows: [0, 1, 2] },
   { id: 'infra-bloom', name: 'Infra Bloom', colors: ['#034843', '#007F73', '#B7DD40', '#FFC983', '#EBA9FF'], flows: [0, 1, 2] },
   // Sky
   { id: 'night', name: 'Night Sky', colors: ['#051629', '#063B75', '#006EE5', '#B2ACF4'], flows: [3] },
-  { id: 'day', name: 'Day Sky', colors: ['#7BD2F4', '#3AC1F5', '#14AFEB', '#298CF8'], flows: [3] },
+  { id: 'day', name: 'Day Sky', colors: ['#0569D7', '#14AFEB', '#67B3D1'], flows: [3] },
 ];
 
 function getPalettesForFlow(flow: number): Palette[] {
