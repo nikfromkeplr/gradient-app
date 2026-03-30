@@ -65,7 +65,7 @@ body {
   cursor: grab;
   user-select: none;
   white-space: pre;
-  font-family: 'Kilimanjaro', sans-serif;
+  font-family: 'Kilimanjaro', 'Black Han Sans', 'Inter', sans-serif;
   color: white;
   line-height: 1;
   letter-spacing: -0.01em;

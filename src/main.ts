@@ -725,6 +725,12 @@ textOverlay.addEventListener('blur', () => {
   textOverlay.contentEditable = 'false';
 });
 
+textOverlay.addEventListener('paste', (e) => {
+  e.preventDefault();
+  const text = e.clipboardData?.getData('text/plain') ?? '';
+  document.execCommand('insertText', false, text);
+});
+
 textOverlay.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     textOverlay.blur();
@@ -961,7 +967,7 @@ function compositeTextOnCanvas(gradientDataUrl: string, format: 'png' | 'jpeg' |
         const exportFontSize = screenFontSize * scaleX;
         const tracking = -0.01; // -1% letter-spacing
 
-        ctx.font = `400 ${exportFontSize}px Kilimanjaro, sans-serif`;
+        ctx.font = `400 ${exportFontSize}px Kilimanjaro, Black Han Sans, Inter, sans-serif`;
         ctx.fillStyle = 'white';
         ctx.textBaseline = 'middle';
 
